@@ -143,9 +143,6 @@ def predict_form(
     if any(x < 0 for x in [ClaimCount, AvgClaimAmount, Age, ChronicCount, StayDuration]):
         return "<h3>Invalid input</h3>"
 
-    # -------------------------------
-    # DataFrame
-    # -------------------------------
     df = pd.DataFrame([{
         "ClaimCount": ClaimCount,
         "AvgClaimAmount": AvgClaimAmount,
@@ -154,9 +151,7 @@ def predict_form(
         "StayDuration": StayDuration
     }])
 
-    # -------------------------------
-    # Feature Engineering (MATCH TRAINING)
-    # -------------------------------
+    # ---------------- FEATURE ENGINEERING ----------------
     df["ClaimRatio"] = df["AvgClaimAmount"] / (df["AvgClaimAmount"] + 1)
     df["HighClaimFlag"] = (df["AvgClaimAmount"] > 10000).astype(int)
     df["FrequentClaimFlag"] = (df["ClaimCount"] > 20).astype(int)
@@ -168,25 +163,24 @@ def predict_form(
         df["StayDuration"] * 0.2
     )
 
-    df = df[[
-        'ClaimCount',
-        'AvgClaimAmount',
-        'Age',
-        'ChronicCount',
-        'StayDuration',
-        'ClaimRatio',
-        'HighClaimFlag',
-        'FrequentClaimFlag',
-        'RiskScore'
-    ]]
+    df = df[
+        [
+            'ClaimCount',
+            'AvgClaimAmount',
+            'Age',
+            'ChronicCount',
+            'StayDuration',
+            'ClaimRatio',
+            'HighClaimFlag',
+            'FrequentClaimFlag',
+            'RiskScore'
+        ]
+    ]
 
-    # -------------------------------
-    # Prediction
-    # -------------------------------
+    # ---------------- PREDICTION ----------------
     prob = cat_model.predict_proba(df)[0][1]
-    prob = max(0.05, min(prob, 0.95))
-
     anomaly = iso_model.predict(df)[0]
+
     anomaly_flag = 1 if anomaly == -1 else 0
 
     if ClaimCount > 25:
@@ -202,27 +196,77 @@ def predict_form(
 
     result = "FRAUD DETECTED 🚨" if fraud else "NOT FRAUD ✅"
 
-    # -------------------------------
-    # SHAP
-    # -------------------------------
+    # ---------------- SHAP ----------------
     explainer = shap.Explainer(cat_model)
     shap_values = explainer(df)
 
     feature_importance = dict(zip(df.columns, shap_values.values[0]))
-    top_features = sorted(feature_importance.items(), key=lambda x: abs(x[1]), reverse=True)[:3]
+    top_features = sorted(
+        feature_importance.items(),
+        key=lambda x: abs(x[1]),
+        reverse=True
+    )[:3]
 
     shap_sentences = []
-    for f, v in top_features:
-        if f == "ClaimCount" and ClaimCount > 20:
-            shap_sentences.append("Very high number of claims indicates suspicious activity.")
-        elif v > 0:
-            shap_sentences.append(f"{f} increased fraud likelihood.")
-        else:
-            shap_sentences.append(f"{f} reduced fraud likelihood.")
 
-    # -------------------------------
-    # LIME
-    # -------------------------------
+    for feature, value in top_features:
+
+        if fraud == 1:
+
+            if feature == "ClaimCount":
+                shap_sentences.append(
+                    "High number of claims increased fraud likelihood"
+                )
+
+            elif feature == "AvgClaimAmount":
+                shap_sentences.append(
+                    "Very high claim amount increased fraud likelihood"
+                )
+
+            elif feature == "ChronicCount":
+                shap_sentences.append(
+                    "Multiple chronic conditions increased fraud likelihood"
+                )
+
+            elif feature == "StayDuration":
+                shap_sentences.append(
+                    "Long hospital stay increased fraud likelihood"
+                )
+
+            elif feature == "Age":
+                shap_sentences.append(
+                    "Patient age contributed to fraud risk"
+                )
+
+        else:
+
+            if feature == "ClaimCount":
+                shap_sentences.append(
+                    "Low claim count reduced fraud likelihood"
+                )
+
+            elif feature == "AvgClaimAmount":
+                shap_sentences.append(
+                    "Lower claim amount reduced fraud likelihood"
+                )
+
+            elif feature == "ChronicCount":
+                shap_sentences.append(
+                    "Fewer chronic conditions reduced fraud likelihood"
+                )
+
+            elif feature == "StayDuration":
+                shap_sentences.append(
+                    "Short hospital stay reduced fraud likelihood"
+                )
+
+            elif feature == "Age":
+                shap_sentences.append(
+                    "Patient age indicates low fraud risk"
+                )
+
+
+    # ---------------- LIME ----------------
     lime_explainer = LimeTabularExplainer(
         training_data=np.array(df),
         feature_names=df.columns.tolist(),
@@ -234,11 +278,27 @@ def predict_form(
         cat_model.predict_proba
     )
 
-    lime_sentences = [rule for rule, _ in lime_exp.as_list()[:3]]
+    lime_sentences = []
 
-    # -------------------------------
-    # RESULT UI
-    # -------------------------------
+    for rule, _ in lime_exp.as_list()[:3]:
+
+        if fraud == 1:
+            lime_sentences.append(rule + " suggests fraud")
+        else:
+            lime_sentences.append(rule + " suggests safe claim")
+
+    # ---------------- ATTRIBUTE MEANINGS ----------------
+    attribute_meaning = """
+    <ul>
+    <li><b>ClaimCount</b> — Number of claims submitted by provider</li>
+    <li><b>AvgClaimAmount</b> — Average reimbursement per claim</li>
+    <li><b>ChronicCount</b> — Number of long-term medical conditions</li>
+    <li><b>StayDuration</b> — Hospital stay duration in days</li>
+    <li><b>Age</b> — Patient age</li>
+    </ul>
+    """
+
+    # ---------------- RESULT UI ----------------
     return f"""
     <html>
     <head>
@@ -290,6 +350,13 @@ def predict_form(
                 color: white;
                 text-decoration: none;
             }}
+
+            .info {{
+                background:#fff4ef;
+                padding:15px;
+                border-radius:12px;
+                margin-top:15px;
+            }}
         </style>
     </head>
 
@@ -301,11 +368,16 @@ def predict_form(
                 <div class="result">{result}</div>
                 <p style="text-align:center;">Probability: {prob:.2f}</p>
 
-                <h3>🔍 Key Factors</h3>
+                <h3>SHAP</h3>
                 <ul>{''.join(f"<li>{s}</li>" for s in shap_sentences)}</ul>
 
-                <h3>🧠 Explanation</h3>
+                <h3>LIME</h3>
                 <ul>{''.join(f"<li>{s}</li>" for s in lime_sentences)}</ul>
+
+                <div class="info">
+                <h3>Attribute Meaning</h3>
+                {attribute_meaning}
+                </div>
 
                 <a href="/">Try Another</a>
             </div>
