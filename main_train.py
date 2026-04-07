@@ -1,4 +1,4 @@
-from src.preprocessing import load_data, merge_data, clean_data #uvicorn app.main:app --reload
+from src.preprocessing import load_data, merge_data, clean_data #uvicorn app.main:app --reload(to run)
 from src.feature_engineering import create_features
 from src.train_model import train_catboost
 from src.anomaly_model import train_isolation_forest
@@ -23,18 +23,12 @@ X_train, X_test, y_train, y_test = prepare_data(df)
 cat_model = train_catboost(X_train, y_train)
 iso_model = train_isolation_forest(X_train)
 
-# from src.preprocessing import load_data, merge_data, clean_data, prepare_data
-# from src.feature_engineering import create_features
-# from src.train_model import train_catboost
-# from src.anomaly_model import train_isolation_forest
-
 # from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
-
 # import numpy as np
 # import shap
 # from lime.lime_tabular import LimeTabularExplainer
 
-
+#The below code was used to check accuracy of different models
 # # -------------------------------
 # # 1. LOAD & PREPROCESS DATA
 # # -------------------------------

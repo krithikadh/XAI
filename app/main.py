@@ -12,10 +12,9 @@ app = FastAPI()
 cat_model = joblib.load("models/catboost.pkl")
 iso_model = joblib.load("models/isolation.pkl")
 
-
-# -------------------------------
-# 1. HOMEPAGE (SOFT ORANGE UI)
-# -------------------------------
+# ------------
+# 1. HOMEPAGE
+# ------------
 @app.get("/", response_class=HTMLResponse)
 def home():
     return """
@@ -298,7 +297,7 @@ def predict_form(
     </ul>
     """
 
-    # ---------------- RESULT UI ----------------
+    # ---------------- RESULT  ----------------
     return f"""
     <html>
     <head>
