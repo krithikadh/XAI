@@ -1,4 +1,4 @@
-from src.preprocessing import load_data, merge_data, clean_data #uvicorn app.main:app --reload(to run)
+from src.preprocessing import load_data, merge_data, clean_data
 from src.feature_engineering import create_features
 from src.train_model import train_catboost
 from src.anomaly_model import train_isolation_forest

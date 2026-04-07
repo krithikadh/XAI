@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form #uvicorn app.main:app --reload(to run)
 from fastapi.responses import HTMLResponse
 import joblib
 import pandas as pd
